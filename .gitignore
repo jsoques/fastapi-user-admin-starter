@@ -1,0 +1,11 @@
+__pycache__/
+venv/
+managed_context/
+test_suite_analysis/
+datastore/master.*
+!datastore/
+.*.swp
+.*
+!.env
+!.gitignore
+!.dockerignore
