@@ -1,7 +1,6 @@
 from contextlib import asynccontextmanager
 import time
-from typing import Annotated
-from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.applications import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -10,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlmodel import SQLModel, Session, select, text
 from database import engine, get_session
-from models.base import Role, TokenData, User, RoleTypes
+from models.base import Role, TokenData, User
 
 from oauth import (
     create_access_token,
