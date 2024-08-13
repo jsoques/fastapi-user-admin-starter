@@ -1,0 +1,48 @@
+{% extends "base.html" %} {% block content %}
+
+<div>
+    <div class="container">
+        <script>
+            document.body.addEventListener('htmx:afterOnLoad', function (evt) {
+                if (evt.detail.xhr.status == 401) {
+                    console.log(evt.detail.requestConfig);
+                    window.location.href = 'login';
+                }
+            });
+        </script>
+        {{ morejsscripts | safe }}
+        <header>
+            <h1 class="header">{{ title }}</h1>
+        </header>
+    </div>
+    <main class="main" id="main">
+        <form hx-post="/user/create" hx-target="{{ target }}">
+            {% if roles %}
+            <label for="role">Role</label>
+            <select name="role" id="role">
+                {% for role in roles %}
+                <option value="{{ role.id }}">{{ role.name }}</option>
+                {% endfor %}
+            </select>
+            {% else %}
+            <input type="hidden" name="role" id="role" value="0">
+            {% endif %}
+            <label for="username">Name</label>
+            <input type="text" id="username" name="username" required="required" placeholder="Name" autocomplete="email"
+                value="{{ username }}" />
+            <label for="useremail">Email</label>
+            <input type="email" id="useremail" name="useremail" required="required" placeholder="Email"
+                autocomplete="email" value="{{ useremail }}" />
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required="required" placeholder="Password" />
+            <label for="rpassword">Repeat Password</label>
+            <input type="password" id="rpassword" name="rpassword" required="required" placeholder="Repeat Password" />
+            <button type="submit">Create User</button>
+            <div>
+                <p style="color: red;">{{ message }}</p>
+            </div>
+        </form>
+    </main>
+</div>
+
+{% endblock %}

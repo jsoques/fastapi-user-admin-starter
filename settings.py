@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRE_MINUTES: int = str(
         os.getenv("JWT_REFRESH_TOKEN_EXPIRE_MINUTES", 300)
     )
+    COOKIE_NAME: str = os.getenv("COOKIE_NAME")
 
 
 @lru_cache()

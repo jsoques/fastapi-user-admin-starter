@@ -1,0 +1,55 @@
+{% extends "base.html" %} {% block content %}
+
+<div>
+    <div class="container">
+        <header>
+            <h1 class="header">Login</h1>
+        </header>
+    </div>
+    <main class="main" id="main">
+        <form action="login" method="POST" id="loginform" autocomplete="off">
+            <label for="username">Email</label>
+            <input type="email" id="username" name="username" required="required" placeholder="Email"
+                autocomplete="email" value="" />
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required="required" placeholder="Password"
+                autocomplete=off value="" />
+            <button type="submit">Login</button>
+            <p style="color:red !important;" id="message">{{ message }}</p>
+        </form>
+    </main>
+    <script>
+
+        document.body.addEventListener('htmx:afterOnLoad', function (evt) {
+
+            if (evt.detail.xhr.status == 401) {
+                console.log(evt.detail.requestConfig);
+                window.location.href = 'login';
+            }
+        });
+        const form = document.getElementById("loginform");
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            // TODO do something here to show user that form is being submitted
+            fetch(event.target.action, {
+                method: 'POST',
+                body: new URLSearchParams(new FormData(event.target)) // event.target is the form
+            }).then((response) => {
+                if (!response.ok) {
+
+                } else {
+                    window.location.href = '/';
+                }
+                return response.json(); // or response.text() or whatever the server sends
+            }).then((body) => {
+                // TODO handle body
+                document.getElementById('message').innerHTML = body.detail;
+                document.getElementById('loginform').reset();
+            }).catch((error) => {
+                // TODO handle error
+            });
+        });
+    </script>
+</div>
+
+{% endblock %}

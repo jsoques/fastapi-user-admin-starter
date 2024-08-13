@@ -1,4 +1,4 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Optional
@@ -10,6 +10,8 @@ from settings import get_settings
 from database import engine
 
 settings = get_settings()
+
+cookie_name = settings.COOKIE_NAME
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
@@ -26,8 +28,8 @@ def create_access_token(data: dict, expires_delta: Optional[int] = None) -> str:
     to_encode = data.copy()
     to_encode.update({"iat": datetime.now(tz=timezone.utc)})
     to_encode.update({"exp": expires_delta})
-    to_encode.update({"iss": "emphasys-software.com"})
-    to_encode.update({"aud": "izlottery.com"})
+    to_encode.update({"iss": "sample.com"})
+    to_encode.update({"aud": "sample.com"})
     encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET, settings.JWT_ALGO)
     return encoded_jwt
 
@@ -44,8 +46,8 @@ def create_refresh_token(data: dict, expires_delta: Optional[int] = None) -> str
     to_encode = data.copy()
     to_encode.update({"iat": datetime.now(tz=timezone.utc)})
     to_encode.update({"exp": expires_delta})
-    to_encode.update({"iss": "emphasys-software.com"})
-    to_encode.update({"aud": "izlottery.com"})
+    to_encode.update({"iss": "sample.com"})
+    to_encode.update({"aud": "sample.com"})
     encoded_jwt = jwt.encode(
         to_encode, settings.JWT_REFRESH_SECRET_KEY, settings.JWT_ALGO
     )
@@ -59,7 +61,7 @@ def validate_access_token(token: str):
             token,
             settings.JWT_SECRET,
             algorithms=[settings.JWT_ALGO],
-            audience="izlottery.com",
+            audience="sample.com",
         )
         user_id = payload.get("sub")
         if user_id is None:
@@ -79,7 +81,7 @@ def verify_access_token(token: str, credentials_exception, credentials_expired):
             token,
             settings.JWT_SECRET,
             algorithms=[settings.JWT_ALGO],
-            audience="izlottery.com",
+            audience="sample.com",
         )
 
         user_id = payload.get("sub")
@@ -91,8 +93,8 @@ def verify_access_token(token: str, credentials_exception, credentials_expired):
         role = payload.get("role")
         user_name = payload.get("user_name")
         accepted_tc = payload.get("accepted_tc")
-        tenant = payload.get("tenant")
-        iztc = payload.get("iztc")
+        # tenant = payload.get("tenant")
+        # iztc = payload.get("iztc")
         impersonated = payload.get("impersonated")
         impersonated_by = payload.get("impersonated_by")
         token_data = TokenData(
@@ -102,8 +104,6 @@ def verify_access_token(token: str, credentials_exception, credentials_expired):
             orgid=orgid,
             role=role,
             accepted_tc=accepted_tc,
-            tenant=tenant,
-            iztc=iztc,
             impersonated=impersonated,
             impersonated_by=impersonated_by,
         )
@@ -140,3 +140,12 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> TokenData
         headers={"WWW-Authenticate": "Bearer"},
     )
     return verify_access_token(token, credentials_exception, credentials_expired)
+
+
+def get_current_user_from_cookie(request: Request):
+    if request.cookies.get(cookie_name):
+        cookie = request.cookies.get(cookie_name)
+        return get_current_user(cookie)
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="User is not authenticated"
+    )

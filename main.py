@@ -1,41 +1,36 @@
 from contextlib import asynccontextmanager
 import time
-from fastapi import Depends, FastAPI, Request, Response
+from typing import Annotated
+from fastapi import Depends, FastAPI, Form, HTTPException, Request, Response, status
 from fastapi.applications import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
-from sqlmodel import SQLModel, Session, text
-from database import engine
-from models.base import Role, TokenData, User, UserCreate
+from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from sqlmodel import SQLModel, Session, select, text
+from database import engine, get_session
+from models.base import Role, TokenData, User, RoleTypes
 
-
-# htmlgenerator (alternative)
-from htmlgenerator import (
-    BODY,
-    DIV,
-    H1,
-    HEAD,
-    HEADER,
-    HTML,
-    LI,
-    LINK,
-    MAIN,
-    NAV,
-    SCRIPT,
-    STRONG,
-    STYLE,
-    TITLE,
-    UL,
-    render,
-    mark_safe as s,
+from oauth import (
+    create_access_token,
+    create_refresh_token,
+    get_current_user,
+    get_current_user_from_cookie,
 )
-
-from oauth import get_current_user
 from settings import get_settings
+from utils import verify_password
+from routes.user import userRouter
+from routes.role import roleRouter
+from routes.webuser import webuserRouter
+from routes.webrole import webroleRouter
+
 
 settings = get_settings()
 
-menu = [{"Users": "users"}, {"Roles": "roles"}, {"Reports": "reports"}]
+menu = [{"Users": "users"}, {"Roles": "roles"}]
+
+cookie_name = settings.COOKIE_NAME
 
 
 @asynccontextmanager
@@ -51,6 +46,9 @@ async def lifespan(app: FastAPI):
         if not any(filter(lambda table: table.name == "role", tables)):
             try:
                 SQLModel.metadata.tables["role"].create(engine)
+                newRole = Role(name="Superuser")
+                session.add(newRole)
+                session.commit()
             except Exception as ex:
                 if "already exists" not in str(ex):
                     print("lifespan Role create", ex)
@@ -72,9 +70,7 @@ async def lifespan(app: FastAPI):
     print("Shutdown")
 
 
-description = (
-    "Sample FastAPI with SQLModel, HTMx, PICOCss and pure Python html generation"
-)
+description = "Sample FastAPI with SQLModel, Jinja2 Templating with HTMX and PICOCss"
 version = "00.01.00"
 devmode = True
 
@@ -86,6 +82,10 @@ app = FastAPI(
     debug=devmode,
 )
 
+app.mount("/static", StaticFiles(directory="www/static"), name="static")
+
+templates = Jinja2Templates(directory="www/templates")
+
 origins = ["*"]
 
 app.add_middleware(
@@ -96,6 +96,11 @@ app.add_middleware(
     allow_headers=["*"],
     max_age=86400,
 )
+
+app.include_router(userRouter)
+app.include_router(roleRouter)
+app.include_router(webuserRouter)
+app.include_router(webroleRouter)
 
 
 @app.middleware("http")
@@ -137,13 +142,20 @@ async def add_process_time_header(request: Request, call_next):
 
     auth = str(request.headers.get("Authorization"))
 
+    if not request.cookies.get(cookie_name):
+        auth = ""
+        for h in request.headers.__dict__["_list"]:
+            # print(h)
+            if h[0].decode("ASCII") == "authorization":
+                request.headers.__dict__["_list"].remove(h)
+
     if "*/*" in accept:
         hxrequest = request.headers.get("hx-request")
         if hxrequest and "true" == hxrequest:
-            izcookie = request.cookies.get("iz_session")
+            zcookie = request.cookies.get(cookie_name)
             auth = ""
-            if izcookie:
-                auth = "Bearer " + izcookie
+            if zcookie:
+                auth = "Bearer " + zcookie
 
     user = ""
     if "Bearer" in auth:
@@ -182,136 +194,195 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
-def getMenu():
-    for m in menu:
-        yield m
-
-
 @app.exception_handler(404)
 def custom_404_handler(_, __):
     """
     Redirect all 404 to root.
     """
-    return RedirectResponse("/")
+    return RedirectResponse("/admin")
 
 
-base_content = HTML(
-    HEAD(
-        TITLE("Main Page"),
-        LINK(
-            rel="stylesheet",
-            href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css",
-        ),
-        SCRIPT(
-            src="https://unpkg.com/htmx.org@2.0.1",
-            integrity="sha384-QWGpdj554B4ETpJJC9z+ZHJcA/i59TyjxEPXiiUgN2WmTyV5OEZWCD6gQhgkdpB/",
-            crossorigin="anonymous",
-        ),
-        STYLE(
-            ".pointer {cursor: pointer;}",
-            ".header {background-color: silver !important; padding: 30px; text-align: center; font-size: 35px;  color: blue;}",
-            ".main {padding: 20px; background-color: #f1f1f1; height: 300px;}",
-        ),
-    ),
-    BODY(
-        SCRIPT(
-            s(
-                """document.body.addEventListener('htmx:afterOnLoad', function (evt)
-                      {if(evt.detail.xhr.status == 401){
-                      console.log(evt.detail.requestConfig);
-                      window.location.replace('login');
-                      }
-                      });"""
-            )
-        ),
-        HEADER(H1("Main Page", _class="header")),
-        DIV(
-            NAV(
-                UL(LI(STRONG("MYAPP"))),
-                UL(
-                    *[
-                        LI(
-                            list(item.keys())[0],
-                            _class="pointer",
-                            hx_get=f"/item/{list(item.values())[0]}",
-                            hx_target="#main",
-                        )
-                        for item in menu
-                    ],
-                    _class="menu",
-                ),
-            )
-        ),
-        _class="container",
-    ),
-    MAIN("Hello World", _class="main", id="main"),
-    doctype=True,
-)
+@app.exception_handler(403)
+def custom_403_handler(_, __):
+    """
+    Redirect all 403 to login.
+    """
+    return RedirectResponse("/login")
 
 
-@app.get("/", response_class=HTMLResponse)
-def default():
-    content = HTML(
-        HEAD(
-            TITLE("Main Page"),
-            LINK(
-                rel="stylesheet",
-                href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css",
-            ),
-            SCRIPT(
-                src="https://unpkg.com/htmx.org@2.0.1",
-                integrity="sha384-QWGpdj554B4ETpJJC9z+ZHJcA/i59TyjxEPXiiUgN2WmTyV5OEZWCD6gQhgkdpB/",
-                crossorigin="anonymous",
-            ),
-            STYLE(
-                ".pointer {cursor: pointer;}",
-                ".header {background-color: silver !important; padding: 30px; text-align: center; font-size: 35px;  color: blue;}",
-                ".main {padding: 20px; background-color: #f1f1f1; height: 300px;}",
-            ),
-        ),
-        BODY(
-            SCRIPT(
-                s(
-                    """document.body.addEventListener('htmx:afterOnLoad', function (evt)
-                      {if(evt.detail.xhr.status == 401){
-                      console.log(evt.detail.requestConfig);
-                      window.location.replace('login');
-                      }
-                      });"""
-                )
-            ),
-            HEADER(H1("Main Page", _class="header")),
-            DIV(
-                NAV(
-                    UL(LI(STRONG("MYAPP"))),
-                    UL(
-                        *[
-                            LI(
-                                list(item.keys())[0],
-                                _class="pointer",
-                                hx_get=f"/item/{list(item.values())[0]}",
-                                hx_target="#main",
-                            )
-                            for item in menu
-                        ],
-                        _class="menu",
-                    ),
-                )
-            ),
-            _class="container",
-        ),
-        MAIN("Hello World", _class="main", id="main"),
-        doctype=True,
+@app.get("/test", response_class=HTMLResponse, include_in_schema=False)
+def test(request: Request, user: TokenData = Depends(get_current_user_from_cookie)):
+    return f"{user}"
+
+
+@app.get("/test2", response_class=HTMLResponse, include_in_schema=False)
+def test2(request: Request):
+    try:
+        user: TokenData = get_current_user_from_cookie(request)
+    except Exception as ex:
+        errort = templates.TemplateResponse(
+            request=request,
+            name="error.html",
+            context={"error": ex.detail},
+        )
+        return errort
+    return f"{user}"
+
+
+@app.get(
+    "/favicon.ico", include_in_schema=False
+)  # Prevent 404 for browser trying to get favico
+def get_favico():
+    return None
+
+
+@app.get("/admin", response_class=HTMLResponse, include_in_schema=False)
+def default(request: Request):
+
+    cookie = None
+
+    if request.cookies.get(cookie_name):
+        cookie = request.cookies.get(cookie_name)
+
+    loginout = "Login" if not cookie else "Logout"
+
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"cookie": cookie, "loginout": loginout},
     )
-    return render(content, {})
 
 
-@app.get("/item/{item}")
-def get_item(item: str, user: TokenData = Depends(get_current_user)):
+@app.get("/login", response_class=HTMLResponse, include_in_schema=False)
+def getlogin(request: Request, session: Session = Depends(get_session)):
 
-    return f"{item}"
+    stmnt = select(User, Role).join(Role, isouter=True)
+    users: list[User] | None = session.exec(statement=stmnt).all()
+
+    message = (
+        ""
+        if not request.query_params.get("message")
+        else request.query_params.get("message")
+    )
+
+    if len(users) == 0:
+        return RedirectResponse("/user/create")
+
+    if request.cookies.get(cookie_name) is None:
+
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"message": message},
+            # status_code=status.HTTP_401_UNAUTHORIZED,
+        )
 
 
-@app.get("/login", response_class=HTMLResponse)
-def login():
-    return "Login"
+@app.post("/login")
+def login(
+    request: Request,
+    response: Response,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    session: Session = Depends(get_session),
+):
+
+    accept = request.headers.get("accept")
+
+    stmnt = (
+        select(User, Role)
+        .join(Role, isouter=True)
+        .where(User.email == form_data.username)
+    )
+    userdata: User | None = session.exec(statement=stmnt).all()
+
+    if len(userdata) > 0:
+        userdata = userdata[0]
+
+    if len(userdata) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+        )
+
+    user = userdata.User
+    role = userdata.Role
+
+    hashed_pass = user.hashed_password
+    if not verify_password(form_data.password, hashed_pass):
+        if "json" in accept:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+            )
+
+    data = {
+        "sub": str(user.id),
+        "user_name": user.email,
+        "organization": "",
+        "orgid": 0,
+        "role": role.name,
+        "accepted_tc": None,
+        "impersonated": False,
+        "impersonated_by": None,
+    }
+
+    access_token = create_access_token(data)
+
+    if "json" not in accept:
+        if access_token:  # request.cookies.get(cookie_name):
+            if request.headers.get("referer"):
+                http_referer = request.headers.get("referer")
+                if http_referer.endswith("login"):
+                    http_referer = http_referer[0 : len(http_referer) - 5]
+                response = RedirectResponse(
+                    url=http_referer, status_code=status.HTTP_303_SEE_OTHER
+                )
+                response.set_cookie(
+                    key=cookie_name,
+                    value=f"{access_token}",
+                    max_age=settings.JWT_EXPIRE * 60,
+                    expires=settings.JWT_EXPIRE * 60,
+                    secure=False,
+                    samesite="strict",
+                    httponly=True,
+                )
+                return response
+
+    response.set_cookie(
+        key=cookie_name,
+        value=f"{access_token}",
+        max_age=settings.JWT_EXPIRE * 60,
+        expires=settings.JWT_EXPIRE * 60,
+        secure=False,
+        samesite="strict",
+        httponly=True,
+    )
+
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "refresh_token": create_refresh_token(data),
+    }
+
+
+@app.get("/logout", response_class=HTMLResponse, include_in_schema=False)
+def logout(request: Request):
+    message = ""
+    response = RedirectResponse(
+        url="/admin", status_code=303, headers={"X-Logout-Message": message}
+    )
+    response.set_cookie(
+        key=cookie_name,
+        value="",
+        max_age=-1,
+        expires=-1,
+        secure=False,
+        samesite="strict",
+        httponly=True,
+    )
+    return response

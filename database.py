@@ -12,3 +12,16 @@ with Session(engine) as session:
     session.exec(text("PRAGMA synchronous = normal"))
     session.exec(text("PRAGMA foreign_keys = on"))
     session.commit()
+
+
+def get_db():
+    db = Session(autoflush=False, bind=engine)
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_session():
+    with Session(engine) as session:
+        yield session

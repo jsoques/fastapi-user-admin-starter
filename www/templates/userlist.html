@@ -1,0 +1,64 @@
+<div id="userlist" style="overflow: scroll;">
+    <div class="container">
+        <script>
+
+
+
+            document.body.addEventListener('htmx:afterOnLoad', function (evt) {
+                if (evt.detail.xhr.status == 401) {
+                    console.log(evt.detail.requestConfig);
+                    window.location.href = 'login';
+                }
+            });
+
+            // document.body.addEventListener('htmx:beforeRequest', function (evt) {
+
+            //     if (evt.detail.elt) {
+            //         if (evt.detail.elt.id.includes("delete")) {
+            //             let user_id = document.getElementById(evt.detail.elt.id).dataset.id;
+            //             let user = document.getElementById(`user_name_${user_id}`).innerText
+
+            //             if (!confirm(`Delete user ${user}?`)) {
+            //                 evt.preventDefault()
+            //             }
+            //         }
+            //     }
+            // });
+
+        </script>
+        <header style="text-align: center; font-weight: bold;">
+            {{ item }} list
+        </header>
+    </div>
+    <main class="main" id="mainuser">
+        <table id="userlisttable">
+            <thead>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th colspan="2"></th>
+            </thead>
+            <tbody>
+                {% for item in list %}
+                <tr id="rowid_{{ item.id }}">
+
+                    <td id="user_name_{{ item.id}}">{{ item.name }}</td>
+                    <td>{{ item.email }}</td>
+                    <td>{{ item.role.name }}</td>
+                    <td class="pointer" hx-get="user/edit/{{ item.id }}" hx-target="#rowid_{{ item.id }}"
+                        hx-swap="outerHTML" hx-disabled-elt="this"
+                        hx-on::before-request="document.getElementById('addbutton').disabled = true">📝</td>
+                    <td id="delete_id_{{ item.id }}" class="pointer" data-id="{{ item.id }}"
+                        hx-delete="user/{{ item.id }}" hx-confirm="Do you wish to delete {{ item.name }}?"
+                        hx-target="#userlist" hx-swap="outerHTML" hx-disabled-elt="this">
+                        🗑</td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div><button id="addbutton" hx-get="user/create" hx-target="#userlist" hx-swap="outerHTML">Add New User</button>
+        </div>
+    </main>
+</div>
+{{ morejsscripts | safe }}

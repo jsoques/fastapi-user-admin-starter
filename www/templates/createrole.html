@@ -1,0 +1,26 @@
+{% extends "base.html" %} {% block content %}
+
+<div>
+    <div class="container">
+        <script>document.body.addEventListener('htmx:afterOnLoad', function (evt) {
+                if (evt.detail.xhr.status == 401) {
+                    console.log(evt.detail.requestConfig);
+                    window.location.href = 'login';
+                }
+            });</script>
+        <header>
+            <h1 class="header">Create Role</h1>
+        </header>
+    </div>
+    <main class="main" id="addrole">
+        <form hx-post="role/create" hx-target="#main">
+
+            <label for="rolename">Role</label>
+            <input type="text" id="rolename" name="rolename" required="required" placeholder="Role Name"
+                autocomplete="rolename" />
+            <button type="submit">Create Role</button>
+        </form>
+    </main>
+</div>
+
+{% endblock %}

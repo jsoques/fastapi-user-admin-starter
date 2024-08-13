@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <meta name="color-scheme" content="light dark" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+
+    <!--Let browser know website is optimized for mobile-->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <style>
+        @keyframes fade-in {
+            from {
+                opacity: 0;
+            }
+        }
+
+        @keyframes fade-out {
+            to {
+                opacity: 0;
+            }
+        }
+
+        @keyframes slide-from-right {
+            from {
+                transform: translateX(490px);
+            }
+        }
+
+        @keyframes slide-to-left {
+            to {
+                transform: translateX(-490px);
+            }
+        }
+
+        /* define animations for the old and new content */
+        ::view-transition-old(slide-it) {
+            animation: 180ms cubic-bezier(0.4, 0, 1, 1) both fade-out,
+                600ms cubic-bezier(0.4, 0, 0.2, 1) both slide-to-left;
+        }
+
+        ::view-transition-new(slide-it) {
+            animation: 420ms cubic-bezier(0, 0, 0.2, 1) 90ms both fade-in,
+                600ms cubic-bezier(0.4, 0, 0.2, 1) both slide-from-right;
+        }
+
+        /* tie the view transition to a given CSS class */
+        .sample-transition {
+            view-transition-name: slide-it;
+        }
+
+        .pointer {
+            cursor: pointer;
+        }
+
+        .header {
+            background-color: rgb(146, 183, 238) !important;
+            padding: 30px;
+            text-align: center;
+            font-size: 35px;
+            color: blue;
+        }
+
+        .main {
+            padding: 20px;
+            background-color: #f1f1f1;
+            height: 600px;
+        }
+
+        .footer {
+            position: fixed;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background-color: white;
+            color: blue;
+            text-align: center;
+        }
+    </style>
+    <title>User Admin</title>
+</head>
+
+<body class="container">
+
+    <main class="container-fluid">
+        {% block content %}
+
+        {% endblock %}
+    </main>
+
+    <footer class="footer">
+        This is a footer
+    </footer>
+
+    <!-- Load from unpkg -->
+    <script src="https://unpkg.com/htmx.org@2.0.1"
+        integrity="sha384-QWGpdj554B4ETpJJC9z+ZHJcA/i59TyjxEPXiiUgN2WmTyV5OEZWCD6gQhgkdpB/"
+        crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/hyperscript.org@0.9.12"></script>
+
+</body>
+
+</html>

@@ -1,0 +1,49 @@
+{% extends "base.html" %} {% block content %}
+<script>
+
+    document.addEventListener('htmx:beforeSwap', function (evt) {
+
+        if (evt.detail.xhr.responseURL.includes('/login')) {
+            evt.preventDefault();
+            window.location.href = 'login';
+        }
+        if (evt.detail.xhr.status == 401) {
+            evt.preventDefault();
+            window.location.href = 'login';
+        }
+
+    });
+
+    function loginout() {
+        sel = document.getElementById('loginout').innerText;
+        if (sel == 'Login') {
+            window.location.href = 'login';
+        } else {
+            window.location.href = 'logout';
+        }
+    }
+</script>
+
+<header>
+    <h1 class="header">FastAPI User Admin</h1>
+</header>
+<div>
+    <nav style="padding: 2px 20px;">
+        <ul class="menu">
+            <li class="pointer" hx-get="/user" hx-target="#main">
+                Users
+            </li>
+            <li class="pointer" hx-get="/role" hx-target="#main">
+                Roles</li>
+        </ul>
+        <ul class="menu">
+            <li class="pointer" onclick="loginout()" id="loginout">{{ loginout }}</li>
+        </ul>
+    </nav>
+</div>
+<div style="overflow: scroll;">
+    <main class="main" id="main"></main>
+</div>
+
+
+{% endblock %}

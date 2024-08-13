@@ -1,0 +1,40 @@
+<div id="rolelist" style="overflow: scroll;">
+    <div class="container">
+        <script>
+
+            document.body.addEventListener('htmx:afterOnLoad', function (evt) {
+                if (evt.detail.xhr.status == 401) {
+                    console.log(evt.detail.requestConfig);
+                    window.location.href = 'login';
+                }
+            });
+
+        </script>
+        <header style="text-align: center; font-weight: bold;">
+            {{ item }} list
+        </header>
+    </div>
+    <main class="main" id="mainrole">
+        <table id="rolelisttable">
+            <thead>
+                <th>Name</th>
+                <th colspan="2"></th>
+            </thead>
+            <tbody>
+                {% for item in list %}
+                <tr id="rowid_{{ item.id }}">
+
+                    <td id="role_name_{{ item.id}}">{{ item.name }}</td>
+                    <td class="pointer">📝</td>
+                    <td class="pointer" id="delete_id_{{ item.id }}" class="pointer" data-id="{{ item.id }}"
+                        hx-delete="role/{{ item.id }}" hx-confirm="Do you wish to delete {{ item.name }}?"
+                        hx-target="#rolelist" hx-swap="outerHTML" hx-disabled-elt="this">
+                        🗑</td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div><button hx-get="role/create" hx-target="#main">Add New Role</button></div>
+    </main>
+</div>
