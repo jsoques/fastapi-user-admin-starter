@@ -1,5 +1,16 @@
 # FastAPI starter project with user admin using JWT, Jinja2 templates and HTMX
 
+## Quickstart run from repo:
+```
+git clone https://github.com/jsoques/fastapi-user-admin-starter.git
+python -m venv venv
+source venv/bin/activate
+mkdir -p www/static
+pip install fastapi[standard] sqlmodel pydantic-settings bcrypt pyjwt python-multipart
+uvicorn main:app --reload --port 8888 --host 0.0.0.0
+```
+You can now visit http://localhost:8888
+
 ## How to setup: 
 
 Let's assume we will create a project directory called **fastapi_htmx_demo** 
