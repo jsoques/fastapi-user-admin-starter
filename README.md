@@ -3,6 +3,7 @@
 ## Quickstart run from repo:
 ```
 git clone https://github.com/jsoques/fastapi-user-admin-starter.git
+cd fastapi-user-admin-starter
 python -m venv venv
 source venv/bin/activate
 mkdir -p www/static
