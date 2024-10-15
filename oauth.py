@@ -142,7 +142,7 @@ def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]) -> TokenData
     return verify_access_token(token, credentials_exception, credentials_expired)
 
 
-def get_current_user_from_cookie(request: Request):
+async def get_current_user_from_cookie(request: Request):
     if request.cookies.get(cookie_name):
         cookie = request.cookies.get(cookie_name)
         return get_current_user(cookie)
